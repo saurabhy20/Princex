@@ -1,0 +1,13 @@
+# fly.toml configuration
+app = "prince-x-userbot"
+
+[build]
+  image = "princex:latest"
+
+[env]
+  API_ID = "your_telegram_api_id"
+  API_HASH = "your_telegram_api_hash"
+  SESSION_STRING = "your_session_string"
+
+[deploy]
+  strategy = "immediate"
