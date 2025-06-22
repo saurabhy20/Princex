@@ -1,11 +1,11 @@
 # main.py - Entry point for Prince-X Userbot
-import os
-import sys
 import logging
 import asyncio
-from telethon import TelegramClient, events
+import sys
+import os
+from telethon import TelegramClient
 from telethon.sessions import StringSession
-from config import API_ID, API_HASH, SESSION_STRING, BOT_TOKEN, PLUGINS_DIR
+from config import config
 
 # Configure logging
 logging.basicConfig(
@@ -14,30 +14,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("Prince-X")
 
-# Client initialization
+# Initialize clients
 client = TelegramClient(
-    StringSession(SESSION_STRING),
-    API_ID,
-    API_HASH
+    StringSession(config.SESSION_STRING),
+    config.API_ID,
+    config.API_HASH
 )
 
-if BOT_TOKEN:
-    bot = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
-else:
-    bot = None
+bot = None
+if config.BOT_TOKEN:
+    bot = TelegramClient('bot', config.API_ID, config.API_HASH)
 
-# Load plugins dynamically
+# Plugin loader
 def load_plugins():
     plugin_count = 0
-    for filename in os.listdir(PLUGINS_DIR):
+    for filename in os.listdir(config.PLUGINS_DIR):
         if filename.endswith('.py') and not filename.startswith('_'):
             plugin_name = filename[:-3]
             try:
-                # Import plugin module
-                plugin_path = f"plugins.{plugin_name}"
+                plugin_path = f"{config.PLUGINS_DIR}.{plugin_name}"
                 __import__(plugin_path)
                 
-                # Register handlers if defined
                 module = sys.modules[plugin_path]
                 if hasattr(module, 'register_handlers'):
                     module.register_handlers(client, bot)
@@ -48,7 +45,7 @@ def load_plugins():
                 logger.error(f"Error loading {plugin_name}: {str(e)}")
     return plugin_count
 
-# Startup message
+# Startup notification
 async def send_startup_message():
     me = await client.get_me()
     message = (
@@ -59,23 +56,24 @@ async def send_startup_message():
         "_Report issues @PrinceXSupport_"
     )
     
-    if bot:
-        await bot.send_message("me", message)
+    if config.LOG_CHANNEL:
+        await client.send_message(config.LOG_CHANNEL, message)
     else:
-        await client.send_message("me", message)
+        logger.info("No LOG_CHANNEL set, skipping startup message")
 
 # Core commands
 @client.on(events.NewMessage(pattern=r'\.ping'))
 async def ping_handler(event):
+    from datetime import datetime
     start = datetime.now()
     await event.edit("🏓 `Pong!`")
     end = datetime.now()
     ms = (end - start).microseconds / 1000
-    await event.edit(f"🏓 **Pong!**\n`{ms}ms`")
+    await event.edit(f"🏓 **Pong!**\n`{ms:.2f}ms`")
 
 @client.on(events.NewMessage(pattern=r'\.alive'))
 async def alive_handler(event):
-    await event.reply("💫 **Prince-X is Alive!**\n`Version 2.0 • Fly.io`")
+    await event.reply("💫 **Prince-X is Alive!**\n`Version 2.0 • Free Server`")
 
 # Main function
 async def main():
@@ -83,12 +81,13 @@ async def main():
     logger.info("Prince-X Client Started")
     
     if bot:
-        await bot.start()
+        await bot.start(bot_token=config.BOT_TOKEN)
         logger.info("Assistant Bot Started")
     
     await send_startup_message()
-    logger.info("Startup message sent")
+    logger.info("Startup process completed")
     
+    # Keep running
     await client.run_until_disconnected()
 
 if __name__ == "__main__":
